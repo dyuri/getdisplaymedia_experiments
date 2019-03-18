@@ -3,22 +3,127 @@
 <head>
   <meta charset="UTF-8">
   <title>getDisplayMedia test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+    #scene {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #000;
+    }
+  </style>
 </head>
 <body>
-  <video id="video" width="800" height="600" controls></video>
-<script>
-let videoElement = document.getElementById('video');
-navigator.mediaDevices.getDisplayMedia({
-  video: true
-}).then(
-  stream => {
-    //we have a stream, attach it to a feedback video element
-    videoElement.srcObject = stream;
-  },
-  error => {
-    console.log("Unable to acquire screen capture", error);
+<canvas id="scene"></canvas>
+<script src="three.js"></script>
+<script id="vs" type="x-shader/x-vertex">
+  varying vec4 v_color;
+  varying vec2 v_uv;
+  
+  void main() {
+  
+    v_uv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+    v_color = vec4(position.z * position.x * 0.5 + 0.5, position.z * position.y * 0.5 + 0.5, position.z * 0.5 + 0.5, 1.0);
+  
   }
-);
+</script>
+<script id="fs" type="x-shader/x-fragment">
+  precision highp float;
+  precision highp int;
+  varying vec2 v_uv;
+  uniform float u_time;
+  uniform vec3 u_mouse;
+  uniform vec2 u_resolution;
+  uniform sampler2D texture1;
+
+  void main() {
+    vec2 uv = ((2.0 * gl_FragCoord.xy) - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
+    vec4 color = texture2D(texture1, .5 * uv + .5);
+    gl_FragColor = color;
+  }
+</script>
+<script>
+  let camera = new THREE.Camera();
+  camera.position.z = 1;
+
+  let scene = new THREE.Scene();
+  let geometry = new THREE.PlaneBufferGeometry( 2, 2 );
+
+  let video = document.createElement('video');
+  // document.body.appendChild(video);
+
+  navigator.mediaDevices.getDisplayMedia({
+    video: true
+  }).then(
+    stream => {
+      //we have a stream, attach it to a feedback video element
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.muted = true;
+      video.play();
+      init();
+    },
+    error => {
+      console.log("Unable to acquire screen capture", error);
+    }
+  );
+
+  const init = () => {
+    let vtexture = new THREE.VideoTexture(video);
+    vtexture.format = THREE.RGBFormat;
+
+    let uniforms = {
+      u_time: {type: "f", value: 1.0},
+      u_resolution: {type: "v2", value: new THREE.Vector2()},
+      u_mouse: {type: "v3", value: new THREE.Vector3()},
+      texture1: {type: "t", value: vtexture}
+    };
+
+    let material = new THREE.ShaderMaterial({
+      uniforms: uniforms,
+      vertexShader: document.getElementById('vs').textContent.trim(),
+      fragmentShader: document.getElementById('fs').textContent.trim()
+    });
+
+    let mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    let canvas = document.getElementById('scene');
+
+    let context = canvas.getContext('webgl');
+    let renderer = new THREE.WebGLRenderer({canvas: canvas, context: context, alpha: true});
+    renderer.setPixelRatio(window.devicePixelRation);
+
+    let resize = () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      uniforms.u_resolution.value.x = renderer.domElement.width;
+      uniforms.u_resolution.value.y = renderer.domElement.height;
+    };
+    window.addEventListener("resize", resize, false);
+    resize();
+
+    document.onmousemove = e => {
+      uniforms.u_mouse.value.x = e.pageX;
+      uniforms.u_mouse.value.y = e.pageY;
+      uniforms.u_mouse.value.z = e.buttons;
+    };
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      uniforms.u_time.value += 0.01;
+
+      // render
+      renderer.render(scene, camera);
+    }
+    animate();
+  };
 </script>
 </body>
 </html>
