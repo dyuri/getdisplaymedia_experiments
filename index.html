@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>getDisplayMedia test</title>
+</head>
+<body>
+  <video id="video" width="800" height="600" controls></video>
+<script>
+let videoElement = document.getElementById('video');
+navigator.mediaDevices.getDisplayMedia({
+  video: true
+}).then(
+  stream => {
+    //we have a stream, attach it to a feedback video element
+    videoElement.srcObject = stream;
+  },
+  error => {
+    console.log("Unable to acquire screen capture", error);
+  }
+);
+</script>
+</body>
+</html>
