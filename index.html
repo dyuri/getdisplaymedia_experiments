@@ -43,10 +43,35 @@
   uniform sampler2D texture1;
   uniform float u_aspect_ratio;
 
+  float rng12(vec2 seed)
+  {
+      return fract(sin(dot(seed, vec2(127.1,311.7))) * 43758.5453123);
+  }
+
+  float rng11(float seed)
+  {
+      return rng12(vec2(seed, 1.0));
+  }
+
   void main() {
     vec2 uv = ((2.0 * gl_FragCoord.xy) - u_resolution.xy) / u_resolution.y;
     vec2 st = uv * vec2(1./u_aspect_ratio, 1.);
-    vec4 color = texture2D(texture1, abs(fract(.5 * st + .5)));
+
+    // DISTORTION
+    float tseed = floor(u_time * 10.);
+    vec2 blockS = floor(st * vec2(24., 9.)) * tseed;
+    vec2 blockL = floor(st * vec2(8., 4.)) * tseed;
+    
+    float r = rng12(st * tseed);
+    vec3 noise = (vec3(r, 1. - r, r / 2. + 0.5) * 1.0 - 2.0) * 0.08;
+    
+    float lineNoise = pow(rng12(blockS), 8.0) * pow(rng12(blockL), 3.0) - pow(rng11(7.2341 * tseed), 17.0) * 2.;
+    
+    vec4 col1 = texture2D(texture1, abs(fract(.5 * st + .5)));
+    vec4 col2 = texture2D(texture1, abs(fract(.5 * (st + vec2(lineNoise * 0.05 * rng11(5.0 * tseed))) + .5)));
+    vec4 col3 = texture2D(texture1, abs(fract(.5 * (st - vec2(lineNoise * 0.05 * rng11(31.0 * tseed))) + .5)));
+    vec4 color = vec4(vec3(col1.r, col2.g, col3.b) + noise, 1.);
+
     gl_FragColor = color;
   }
 </script>
