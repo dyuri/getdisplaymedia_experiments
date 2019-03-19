@@ -41,10 +41,12 @@
   uniform vec3 u_mouse;
   uniform vec2 u_resolution;
   uniform sampler2D texture1;
+  uniform float u_aspect_ratio;
 
   void main() {
-    vec2 uv = ((2.0 * gl_FragCoord.xy) - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
-    vec4 color = texture2D(texture1, .5 * uv + .5);
+    vec2 uv = ((2.0 * gl_FragCoord.xy) - u_resolution.xy) / u_resolution.y;
+    vec2 st = uv * vec2(1./u_aspect_ratio, 1.);
+    vec4 color = texture2D(texture1, abs(fract(.5 * st + .5)));
     gl_FragColor = color;
   }
 </script>
@@ -82,6 +84,7 @@
       u_time: {type: "f", value: 1.0},
       u_resolution: {type: "v2", value: new THREE.Vector2()},
       u_mouse: {type: "v3", value: new THREE.Vector3()},
+      u_aspect_ratio: {type: "f", value: video.videoWidth / video.videoHeight},
       texture1: {type: "t", value: vtexture}
     };
 
@@ -117,6 +120,7 @@
     function animate() {
       requestAnimationFrame(animate);
 
+      uniforms.u_aspect_ratio.value = video.videoWidth / video.videoHeight;
       uniforms.u_time.value += 0.01;
 
       // render
