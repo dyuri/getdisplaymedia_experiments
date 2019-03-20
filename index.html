@@ -7,19 +7,28 @@
     body {
       margin: 0;
       padding: 0;
+      font-family: monospace;
     }
     #scene {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      right: 0;
       background: #000;
     }
   </style>
 </head>
 <body>
 <canvas id="scene"></canvas>
+<div id="controls">
+  <div>
+    <label for="zoom">Zoom</label>
+    <select id="zoom">
+      <option value="0.25">25%</option>
+      <option value="0.5" selected>50%</option>
+      <option value="1.0">100%</option>
+    </select>
+  </div>
+  <div>
+    <input type="checkbox" name="distort" id="distort" value="true" checked><label for="distort">Distortion</label>
+  </div>
+</div>
 <script src="three.js"></script>
 <script id="vs" type="x-shader/x-vertex">
   varying vec4 v_color;
@@ -42,6 +51,7 @@
   uniform vec2 u_resolution;
   uniform sampler2D texture1;
   uniform float u_aspect_ratio;
+  uniform bool u_distort;
 
   float rng12(vec2 seed)
   {
@@ -67,10 +77,12 @@
     
     float lineNoise = pow(rng12(blockS), 8.0) * pow(rng12(blockL), 3.0) - pow(rng11(7.2341 * tseed), 17.0) * 2.;
     
-    vec4 col1 = texture2D(texture1, abs(fract(.5 * st + .5)));
-    vec4 col2 = texture2D(texture1, abs(fract(.5 * (st + vec2(lineNoise * 0.05 * rng11(5.0 * tseed))) + .5)));
-    vec4 col3 = texture2D(texture1, abs(fract(.5 * (st - vec2(lineNoise * 0.05 * rng11(31.0 * tseed))) + .5)));
-    vec4 color = vec4(vec3(col1.r, col2.g, col3.b) + noise, 1.);
+    vec4 color = texture2D(texture1, abs(fract(.5 * st + .5)));
+    if (u_distort) {
+      vec4 col2 = texture2D(texture1, abs(fract(.5 * (st + vec2(lineNoise * 0.05 * rng11(5.0 * tseed))) + .5)));
+      vec4 col3 = texture2D(texture1, abs(fract(.5 * (st - vec2(lineNoise * 0.05 * rng11(31.0 * tseed))) + .5)));
+      color = vec4(vec3(color.r, col2.g, col3.b) + noise, 1.);
+    }
 
     gl_FragColor = color;
   }
@@ -94,7 +106,7 @@
       video.autoplay = true;
       video.muted = true;
       video.play();
-      init();
+      video.addEventListener('loadeddata', init);
     },
     error => {
       console.log("Unable to acquire screen capture", error);
@@ -110,6 +122,7 @@
       u_resolution: {type: "v2", value: new THREE.Vector2()},
       u_mouse: {type: "v3", value: new THREE.Vector3()},
       u_aspect_ratio: {type: "f", value: video.videoWidth / video.videoHeight},
+      u_distort: {type: "b", value: true},
       texture1: {type: "t", value: vtexture}
     };
 
@@ -128,12 +141,12 @@
     let renderer = new THREE.WebGLRenderer({canvas: canvas, context: context, alpha: true});
     renderer.setPixelRatio(window.devicePixelRation);
 
-    let resize = () => {
-      renderer.setSize(window.innerWidth, window.innerHeight);
+    const resize = zoom => {
+      zoom = zoom || .5;
+      renderer.setSize(video.videoWidth * zoom, video.videoHeight * zoom);
       uniforms.u_resolution.value.x = renderer.domElement.width;
       uniforms.u_resolution.value.y = renderer.domElement.height;
     };
-    window.addEventListener("resize", resize, false);
     resize();
 
     document.onmousemove = e => {
@@ -141,6 +154,14 @@
       uniforms.u_mouse.value.y = e.pageY;
       uniforms.u_mouse.value.z = e.buttons;
     };
+
+    document.getElementById("zoom").addEventListener("change", e => {
+      resize(+e.target.value);
+    });
+
+    document.getElementById("distort").addEventListener("change", e => {
+      uniforms.u_distort.value = e.target.checked;
+    });
 
     function animate() {
       requestAnimationFrame(animate);
