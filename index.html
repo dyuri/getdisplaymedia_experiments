@@ -53,8 +53,13 @@
     <label for="distort">Distortion</label>
     <input type="checkbox" name="distort" id="distort" value="true" checked>
   </div>
+  <div>
+    <button id="record" type="button">Record</button>
+  </div>
 </div>
 <script src="three.js"></script>
+<script src="screenshot.js"></script>
+<script src="RecordRTC.js"></script>
 <script id="vs" type="x-shader/x-vertex">
   varying vec4 v_color;
   varying vec2 v_uv;
@@ -187,6 +192,31 @@
     document.getElementById("distort").addEventListener("change", e => {
       uniforms.u_distort.value = e.target.checked;
     });
+
+    let recorder = null;
+    const toggleRecording = e => {
+      let button = e.target;
+
+      if (button.hasAttribute("recording")) {
+        // recording, stop
+        console.info('stop recording');
+        button.removeAttribute("recording");
+        button.textContent = "Record";
+        recorder.stopRecording(() => {
+          let blob = recorder.getBlob();
+          invokeSaveAsDialog(blob);
+        });
+      } else {
+        // not recording, start
+        console.info('start recording');
+        button.setAttribute("recording", true);
+        button.textContent = "Stop";
+        recorder = RecordRTC(canvas, { type: 'canvas' });
+        recorder.startRecording();
+      }
+    };
+
+    document.getElementById("record").addEventListener("click", toggleRecording);
 
     function animate() {
       requestAnimationFrame(animate);
